@@ -1,0 +1,442 @@
+import random
+import math
+import sys
+import time
+import collections
+# deckmaker
+spades = ["2♠", "3♠", "4♠", "5♠", "6♠", "7♠", "8♠", "9♠", "10♠", "J♠", "Q♠", "K♠", "A♠"]
+hearts = ["2♥", "3♥", "4♥", "5♥", "6♥", "7♥", "8♥", "9♥", "10♥", "J♥", "Q♥", "K♥", "A♥"]
+clubs = ["2♣", "3♣", "4♣", "5♣", "6♣", "7♣", "8♣", "9♣", "10♣", "J♣", "Q♣", "K♣", "A♣"]
+diamonds = ["2⬥", "3⬥", "4⬥", "5⬥", "6⬥", "7⬥", "8⬥", "9⬥", "10⬥", "J⬥", "Q⬥", "K⬥", "A⬥"]
+predeck = [spades, hearts, clubs, diamonds]
+
+
+
+# hand check
+def handcheck(num):
+    # flushcheck
+    flushcheck = collections.Counter()
+    for card in hands[num]:
+        flushcheck[card[1]] += 1
+    flushcheck = [str(x) for x in flushcheck.values()]
+    flush = True if "5" in flushcheck else False
+
+    # straightcheck
+
+    straight = False
+    for thing in straightlist:
+        straightcheck = []
+        for n in thing:
+            for card in hands[num]:
+                if n in card:
+                    straightcheck.append(n)
+        if straightcheck == thing:
+            straight = True
+
+
+    #how many of a card
+    cardcheck = collections.Counter()
+    for card in hands[num]:
+        cardcheck[card[0]]+=1
+    cards=cardcheck.values()
+    cards=[str(x) for x in cards]
+
+    # royalflush
+
+    royalflush = []
+    for n in straightlist[-1]:
+        for card in hands[num]:
+            if n in card and flushcheck == 1:
+                royalflush.append(1)
+    if royalflush == [1, 1, 1, 1, 1]:
+        return "Royal Flush"
+
+    # straightflush
+
+    if straight == True and flush == True:
+        return "Straight Flush"
+
+    # fours
+
+    if "4" in cards:
+        return 27, "Four of a Kind"
+
+    # fullhouse
+
+    if "3" and "2" in cards:
+        return 45, "Full House"
+
+    # flush
+
+    if flush == True:
+        return 40, "Flush"
+
+    # straight
+
+    if straight == True:
+        return 35, "Straight"
+
+    # three
+
+    if "3" in cards:
+        return 30, "Three of a Kind"
+
+    # twopair
+
+    if cards.count("2")==2:
+        return 29, "Two Pair"
+
+    # pair
+
+    if "2" in cards:
+        return 20, "Pair"
+
+    # high
+    return "high", "High Card"
+
+
+def pointcheck(num):
+    global probs
+    global confs
+    probs[num] = 0
+    confs[num] = (math.sqrt(moneys[num] / 1000)) * 10
+    for number in intlist:
+        for card in hands[turn]:
+            if number in card:
+                probs[num] += int(number)
+                probs[num] -= 2
+    for card in hands[num]:
+        if "A" in card:
+            probs[num] += 13
+        if "K" in card:
+            probs[num] += 11
+        if "Q" in card:
+            probs[num] += 10
+        if "J" in card:
+            probs[num] += 9
+    if isinstance(handcheck(num)[0], int) == True:
+        probs[num] += handcheck(num)[0]
+    elif "Royal Flush" in handcheck(num)[0]:
+        confs[num] = 10
+        probs[num] = 90
+    elif "Straight Flush" in handcheck(num)[0]:
+        probs[num] = 90
+        confs[num] = 10
+
+
+def handpick(hands,num):
+    global winning_hand
+    global probs
+    points = []
+    if stage >= 3:
+        for n in range(0, len(hands[num])):
+            temp = hands[num].copy()
+            hands[num].remove(hands[num][n])
+            for a in range(0, len(hands[num])):
+                temp2 = hands[num].copy()
+                hands[num].remove(hands[num][a])
+                pointcheck(turn)
+                points.append(probs[num])
+                if points[-1]==max(points):
+                    winning_hand=hands[num].copy()
+                hands[num] = temp2
+            hands[num] = temp
+        probs[num] = max(points)
+
+    else:
+        for n in range(0, len(hands[num])):
+            temp = hands[num].copy()
+            hands[num].remove(hands[num][n])
+            pointcheck(num)
+            points.append(probs[num])
+            hands[num] = temp
+        probs[num] = max(points)
+
+
+
+# money
+moneys = [10000,10000,10000,10000,10000,10000]
+
+
+# some setup
+bets=[0,0,0,0,0,0]
+folds = [False, False, False, False, False, False]
+conf1 = (math.sqrt(moneys[1]/ 1000)) * 10
+conf2 = (math.sqrt(moneys[2] / 1000)) * 10
+conf3 = (math.sqrt(moneys[3] / 1000)) * 10
+conf4 = (math.sqrt(moneys[4] / 1000)) * 10
+conf5 = (math.sqrt(moneys[5] / 1000)) * 10
+confs = [0, conf1, conf2, conf3, conf4, conf5]
+probs = [0, 0, 0, 0, 0, 0]
+intlist = ["2", "3", "4", "5", "6", "7", "8", "9", "10"]
+choicelist = ["raise", "call", "fold"]
+betlist = [100, 200, 500, 1000, 1250, 1500, 2000]
+comm=[]
+suitlist = ["♠", "♥", "⬥", "♣"]
+straightlist = [["A", "2", "3", "4", "5"], ["2", "3", "4", "5", "6"], ["3", "4", "5", "6", "7"],
+                ["4", "5", "6", "7", "8"], ["5", "6", "7", "8", "9"], ["6", "7", "8", "9", "10"],
+                ["7", "8", "9", "10", "J"], ["8", "9", "10", "J", "Q"], ["9", "10", "J", "Q", "K"],
+                ["10", "J", "Q", "K", "A"]]
+
+
+# deciding blinds
+
+def betting_round(number):
+    global bigblind
+    global turn
+    if bigblind==5:
+        turn=0
+    else:
+        turn = bigblind + 1
+    global stage
+    global folds
+    global pot
+    global lastbet
+    global bets
+    bets = [0, 0, 0, 0, 0, 0]
+    global moneys
+    bruh = 6
+    while True:
+        # foldchecker
+        if folds.count(False) == 1:
+            if folds[0] == False:
+                print("\nYou win the hand")
+            else:
+                print(f"\nPlayer {folds.index(False) + 1} wins the hand")
+            return "foldwin"
+        if bruh==0:
+            stage+=1
+            break
+        # next stage mechanic here
+        # CPU turn
+        for x in hands:
+            if turn == hands.index(x) and turn != 0:
+                if folds[turn] == True:
+                    print("\nPlayer", turn + 1, "already folded")
+                handpick(hands, turn)
+                if stage == 1:
+                    CPUpick = random.choices(choicelist, cum_weights=(
+                        ((probs[turn] / 2) + (confs[turn] / 2)), (probs[turn] + confs[turn]), 41), k=1)
+                else:
+                    CPUpick = random.choices(choicelist, cum_weights=(
+                        ((probs[turn] / 4) + (confs[turn] / 4)), (probs[turn] + confs[turn]), 100), k=1)
+                if "call" in CPUpick:
+                    if lastbet == bets[turn]:
+                        CPUpick = ["check"]
+                    else:
+                        moneys[turn] -= (lastbet - bets[turn])
+                        pot += (lastbet - bets[turn])
+                        bets[turn] = lastbet
+                elif "raise" in CPUpick and folds[turn] == False:
+                    bruh = 6
+                    CPUraise = random.choices(betlist, weights=(
+                        (90 - probs[turn]), probs[turn] / 2, probs[turn] / 2, confs[turn] / 2, confs[turn] / 4,
+                        confs[turn] / 8,
+                        confs[turn] / 8), k=1)
+                    lastbet += CPUraise[0]
+                    raiseamount = lastbet - bets[turn]
+                    moneys[turn] -= raiseamount
+                    pot += raiseamount
+                    bets[turn] = lastbet
+                elif "fold" in CPUpick and folds[turn] == False:
+                    if lastbet == bets[turn]:
+                        CPUpick = ["check"]
+                    else:
+                        folds[turn] = True
+                        print("\nPlayer", turn + 1, "folds")
+        if turn != 0 and folds[turn] == False:
+            if "raise" in CPUpick:
+                print("\nPlayer", turn + 1, "raises for", CPUraise[0])
+            elif "check" or "call" in CPUpick:
+                print("\nPlayer", turn + 1, CPUpick[0] + "s")
+        while turn == 0:
+            if folds[0] ==True:
+                print("\nYou already folded")
+                break
+            print("\nYour hand is", hands[0][0:2])
+
+            if len(comm)!=0:
+              print("\nThe cards on the table are", comm)
+            if lastbet==bets[0]:
+                action = input("\nDo you want to Check, Raise, or Fold? ")
+            else:
+                print("\nThe last bet was",lastbet)
+                print("You have already have put in",bets[0])
+                action = input("\nDo you want to Call, Raise or Fold?")
+            if action == "call" or action == "Call":
+                moneys[0] -= (lastbet-bets[0])
+                pot += (lastbet-bets[0])
+                bets[0] = lastbet
+                break
+            elif action == "raise" or action == "Raise":
+                lastbet += int(input("\nHow much are you going to bet? "))
+                bruh=6
+                raiseamount=lastbet-bets[0]
+                moneys[0] -= raiseamount
+                pot += raiseamount
+                bets[0] = lastbet
+                break
+            elif (action == "check" or action == "Check") and lastbet == bets[0]:
+                break
+            elif action == "fold" or action == "Fold":
+                folds[0] = True
+                break
+            else:
+                print("\nPlease choose an action: Call, Raise, or Fold")
+
+        # turn change
+        if turn == 5:
+            turn = 0
+        else:
+            turn += 1
+        bruh -= 1
+        probs[turn]=0
+        time.sleep(0.4)
+round=0
+hand0 = []
+hand1 = []
+hand2 = []
+hand3 = []
+hand4 = []
+hand5 = []
+hands = [hand0, hand1, hand2, hand3, hand4, hand5]
+
+
+smallblind = random.randint(0, len(hands) - 1)
+if smallblind == 5:
+    bigblind = 0
+else:
+    bigblind = smallblind + 1
+turn=bigblind+1
+
+while True:
+    input("\nPress enter to deal the next hand")
+    folds = [False, False, False, False, False, False]
+    pot = 0
+    deck = []
+    for n in predeck:
+        for x in n:
+            deck.append(x)
+            deck.append(x)
+    # card deal
+    hand0 = []
+    hand1 = []
+    hand2 = []
+    hand3 = []
+    hand4 = []
+    hand5 = []
+    for n in hands:
+        n.append(random.choice(deck))
+        deck.remove(n[0])
+        n.append(random.choice(deck))
+        deck.remove(n[1])
+    # distributing blinds
+    moneys[smallblind] -= 100 * (round // 5 + 1)
+    moneys[bigblind] -= 200 * (round // 5 + 1)
+    bets[smallblind] = 100 * (round // 5 + 1)
+    bets[bigblind] = 200 * (round // 5 + 1)
+    pot = 300
+    lastbet = 200
+
+    stage = 1
+
+    print(
+        f"\nThe cards have been dealt \nThe small blind is player {smallblind + 1} at ${100 * (round // 5 + 1)}\nThe big blind is "
+        f"player {bigblind + 1} at ${200 * (round // 5 + 1)}")
+
+    foldd = betting_round(stage)
+    if foldd=="foldwin":
+        continue
+
+    # flop stage
+    deck.remove(random.choice(deck))
+    while len(comm) < 3:
+        comm.append(random.choice(deck))
+        if comm[-1] in deck:
+            deck.remove(comm[-1])
+    for hand in hands:
+        for card in comm:
+            hands[hands.index(hand)].append(card)
+    print("\n\nFLOP\n")
+    print("\nCards on the table:", comm)
+    lastbet = 0
+    foldd = betting_round(stage)
+    if foldd == "foldwin":
+        continue
+
+    # turn
+    deck.remove(random.choice(deck))
+    comm.append(random.choice(deck))
+    deck.remove(comm[-1])
+    for hand in hands:
+        hand.append(comm[-1])
+    print("\n\nTURN\n")
+    print("\nCards on the table:", comm)
+    lastbet = 0
+
+    foldd = betting_round(stage)
+    if foldd == "foldwin":
+        continue
+
+    # river
+    deck.remove(random.choice(deck))
+    comm.append(random.choice(deck))
+    deck.remove(comm[-1])
+    for hand in hands:
+        hand.append(comm[-1])
+    print("\n\nRIVER\n")
+    print("\nCards on the table:", comm)
+    lastbet = 0
+
+    foldd = betting_round(stage)
+    if foldd == "foldwin":
+        continue
+    # SHOWDOWN
+
+    print("\n\nSHOWDOWN\n")
+
+    print("\nThe hands...")
+    probs = [0, 0, 0, 0, 0, 0]
+    for hand in hands:
+        if folds[hands.index(hand)] == False:
+            print(hand)
+            print(hands.index(hand))
+            i=hands.index(hand)
+            handpick(hands, hands.index(hand))
+            hand=hands[i]
+            if hands.index(hand) == 0:
+                print("Your hand:", hand[0:2])
+            else:
+                print("\nPlayer", str(hands.index(hand) + 1) + "'s hand:", hand[0:2])
+            time.sleep(2)
+    print("\nThe cards on the table:", comm)
+    time.sleep(2)
+    for hand in hands:
+        if folds[hands.index(hand)] == False:
+            if hands.index(hand) == 0:
+                print("You have...")
+                time.sleep(1)
+                print()
+            else:
+                print("\nPlayer", str(hands.index(hand) + 1) + "'s hand:", hand[0:2])
+    print("\nThe winner is...")
+    winner = probs.index(max(probs))
+    if winner == 0:
+        print(f"\nYou win the pot of ${pot}")
+    else:
+        print(f"\nPlayer {winner + 1} wins the pot of ${pot}")
+
+    moneys[winner] += pot
+    round+=1
+
+
+# what hand does the winner have
+
+# make the CPUs better
+
+#run out of money and elimination
+
+# all in and all that jazz
+
+# winning the tournament
+
